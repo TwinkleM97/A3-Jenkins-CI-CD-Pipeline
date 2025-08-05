@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '📥 Cloning repository...'
+                echo '🔁 Cloning repository...'
                 git url: 'https://github.com/TwinkleM97/A3-Jenkins-CI-CD-Pipeline.git', branch: 'main'
             }
         }
@@ -35,17 +35,26 @@ pipeline {
 
         stage('Package Function App') {
             steps {
-                echo '📦 Zipping Azure Function app for deployment...'
-                // Safely zip relevant files, excluding node_modules
+                echo '📦 Packaging Azure Function App for deployment...'
                 bat '''
-                    powershell -Command "
-                        $include = @(
-                            'src/functions/*',
-                            'host.json',
-                            'package.json'
-                        )
-                        Compress-Archive -Path $include -DestinationPath function.zip -Force
-                    "
+                    REM Clean up any previous package
+                    if exist function.zip del /f /q function.zip
+                    if exist deploy rmdir /s /q deploy
+
+                    REM Create deployment folder
+                    mkdir deploy
+                    xcopy /E /I /Y src deploy\\src
+                    copy host.json deploy\\
+                    copy package.json deploy\\
+                    if exist local.settings.json copy local.settings.json deploy\\
+
+                    REM Zip everything inside deploy/
+                    cd deploy
+                    powershell Compress-Archive -Path * -DestinationPath ..\\function.zip -Force
+                    cd ..
+
+                    REM Check if zip was created
+                    powershell "if (!(Test-Path function.zip)) { Write-Error '❌ Zip file creation failed'; exit 1 }"
                 '''
             }
         }
@@ -63,17 +72,31 @@ pipeline {
                 """
             }
         }
+
+        stage('Verify Deployment') {
+            steps {
+                echo '🔍 Verifying deployment status...'
+                bat """
+                    az functionapp show ^
+                        --resource-group %AZURE_RESOURCE_GROUP% ^
+                        --name %AZURE_FUNCTIONAPP_NAME% ^
+                        --query "state" -o tsv
+                """
+            }
+        }
     }
 
     post {
         always {
             echo '📋 Pipeline execution finished.'
+            bat 'if exist function.zip del /f /q function.zip'
+            bat 'if exist deploy rmdir /s /q deploy'
         }
         success {
-            echo '✅ SUCCESS: Azure Function deployed!'
+            echo '✅ SUCCESS: Function deployed to Azure!'
         }
         failure {
-            echo '❌ FAILURE: Check logs for details.'
+            echo '❌ FAILURE: Something went wrong.'
         }
     }
 }
