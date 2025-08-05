@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Cloning repository...'
+                echo '📥 Cloning repository...'
                 git url: 'https://github.com/TwinkleM97/A3-Jenkins-CI-CD-Pipeline.git', branch: 'main'
             }
         }
@@ -35,14 +35,24 @@ pipeline {
 
         stage('Package Function App') {
             steps {
-                echo '📦 Zipping project for deployment...'
-                bat 'powershell Compress-Archive -Path * -DestinationPath function.zip'
+                echo '📦 Zipping Azure Function app for deployment...'
+                // Safely zip relevant files, excluding node_modules
+                bat '''
+                    powershell -Command "
+                        $include = @(
+                            'src/functions/*',
+                            'host.json',
+                            'package.json'
+                        )
+                        Compress-Archive -Path $include -DestinationPath function.zip -Force
+                    "
+                '''
             }
         }
 
         stage('Deploy to Azure Function') {
             steps {
-                echo '🚀 Deploying to Azure...'
+                echo '🚀 Deploying to Azure Function App...'
                 bat """
                     az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
                     az account set --subscription %AZURE_SUBSCRIPTION_ID%
@@ -60,10 +70,10 @@ pipeline {
             echo '📋 Pipeline execution finished.'
         }
         success {
-            echo '✅ SUCCESS: Function deployed to Azure!'
+            echo '✅ SUCCESS: Azure Function deployed!'
         }
         failure {
-            echo '❌ FAILURE: Something went wrong.'
+            echo '❌ FAILURE: Check logs for details.'
         }
     }
 }
