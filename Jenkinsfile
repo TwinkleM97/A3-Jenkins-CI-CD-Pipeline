@@ -2,9 +2,15 @@ pipeline {
     agent any
 
     environment {
+        // Azure App Details
         AZURE_FUNCTIONAPP_NAME = 'func-hello-twinkle-8894858'
         AZURE_RESOURCE_GROUP   = 'rg-jenkins-cicd-twinkle'
         AZURE_SUBSCRIPTION_ID  = '50cae124-78f4-44b5-b776-67084ff1a820'
+
+        // Injected from Jenkins Credentials (Secret Text)
+        AZURE_CLIENT_ID     = credentials('AZURE_CLIENT_ID')
+        AZURE_CLIENT_SECRET = credentials('AZURE_CLIENT_SECRET')
+        AZURE_TENANT_ID     = credentials('AZURE_TENANT_ID')
     }
 
     stages {
@@ -29,7 +35,16 @@ pipeline {
             steps {
                 dir('azure-function-jenkins-cicd') {
                     echo '🧪 Running unit tests...'
-                    bat 'npm test'  // Make sure you have a "test" script in package.json
+                    bat 'npm test'
+                }
+            }
+        }
+
+        stage('Archive for Deployment') {
+            steps {
+                dir('azure-function-jenkins-cicd') {
+                    echo '📦 Creating deployment zip package...'
+                    bat 'powershell -Command "Compress-Archive -Path * -DestinationPath function.zip"'
                 }
             }
         }
