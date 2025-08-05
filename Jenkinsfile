@@ -18,11 +18,13 @@ pipeline {
 
         stage('Build') {
             steps {
-                script {
-                    echo 'Building the application...'
-                    echo 'Installing Node.js dependencies...'
-                    bat 'npm install'
-                    echo 'Build completed successfully!'
+                dir('azure-function-jenkins-cicd') {
+                    script {
+                        echo 'Building the application...'
+                        echo 'Installing Node.js dependencies...'
+                        bat 'npm install'
+                        echo 'Build completed successfully!'
+                    }
                 }
             }
         }
